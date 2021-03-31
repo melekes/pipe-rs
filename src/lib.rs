@@ -131,6 +131,18 @@ pub fn bipipe() -> (
     ((r1, w2).into(), (r2, w1).into())
 }
 
+/// Creates a pair of pipes for bidirectional communication, a bit like UNIX's `socketpair(2)`.
+#[cfg(feature = "bidirectional")]
+#[cfg_attr(feature = "unstable-doc-cfg", doc(cfg(feature = "bidirectional")))]
+pub fn async_bipipe() -> (
+    readwrite::ReadWrite<PipeReader, PipeWriter>,
+    readwrite::ReadWrite<PipeReader, PipeWriter>,
+) {
+    let (r1, w1) = async_pipe();
+    let (r2, w2) = async_pipe();
+    ((r1, w2).into(), (r2, w1).into())
+}
+
 /// Creates a pair of pipes for bidirectional communication using buffered writer, a bit like UNIX's `socketpair(2)`.
 #[cfg(feature = "bidirectional")]
 #[cfg_attr(feature = "unstable-doc-cfg", doc(cfg(feature = "bidirectional")))]
@@ -140,6 +152,18 @@ pub fn bipipe_buffered() -> (
 ) {
     let (r1, w1) = pipe_buffered();
     let (r2, w2) = pipe_buffered();
+    ((r1, w2).into(), (r2, w1).into())
+}
+
+/// Creates a pair of pipes for bidirectional communication using buffered writer, a bit like UNIX's `socketpair(2)`.
+#[cfg(feature = "bidirectional")]
+#[cfg_attr(feature = "unstable-doc-cfg", doc(cfg(feature = "bidirectional")))]
+pub fn async_bipipe_buffered() -> (
+    readwrite::ReadWrite<PipeReader, PipeBufWriter>,
+    readwrite::ReadWrite<PipeReader, PipeBufWriter>,
+) {
+    let (r1, w1) = async_pipe_buffered();
+    let (r2, w2) = async_pipe_buffered();
     ((r1, w2).into(), (r2, w1).into())
 }
 
