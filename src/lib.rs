@@ -21,15 +21,15 @@
 //! assert_eq!(&s, message);
 //! ```
 
-#[cfg(feature="readwrite")]
-extern crate readwrite;
 extern crate crossbeam_channel;
+#[cfg(feature = "readwrite")]
+extern crate readwrite;
 
-use crossbeam_channel::{Sender, Receiver, SendError, TrySendError};
-use std::io::{self, BufRead, Read, Write};
+use crossbeam_channel::{Receiver, SendError, Sender, TrySendError};
 use std::cmp::min;
-use std::mem::replace;
 use std::hint::unreachable_unchecked;
+use std::io::{self, BufRead, Read, Write};
+use std::mem::replace;
 
 // value for libstd
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;
@@ -44,7 +44,7 @@ pub struct PipeReader {
 /// The `Write` end of a pipe (see `pipe()`)
 #[derive(Clone)]
 pub struct PipeWriter {
-    sender: Sender<Vec<u8>>
+    sender: Sender<Vec<u8>>,
 }
 
 /// The `Write` end of a pipe (see `pipe()`) that will buffer small writes before sending
@@ -60,34 +60,55 @@ pub fn pipe() -> (PipeReader, PipeWriter) {
     let (sender, receiver) = crossbeam_channel::bounded(0);
 
     (
-        PipeReader { receiver, buffer: Vec::new(), position: 0 },
+        PipeReader {
+            receiver,
+            buffer: Vec::new(),
+            position: 0,
+        },
         PipeWriter { sender },
     )
 }
 
 /// Creates a synchronous memory pipe with buffered writer
 pub fn pipe_buffered() -> (PipeReader, PipeBufWriter) {
-    let (tx, rx) = crossbeam_channel::bounded(0);
+    let (tx, rx) = crossbeam_channel::unbounded();
 
-    (PipeReader { receiver: rx, buffer: Vec::new(), position: 0 }, PipeBufWriter { sender: Some(tx), buffer: Vec::with_capacity(DEFAULT_BUF_SIZE), size: DEFAULT_BUF_SIZE } )
+    (
+        PipeReader {
+            receiver: rx,
+            buffer: Vec::new(),
+            position: 0,
+        },
+        PipeBufWriter {
+            sender: Some(tx),
+            buffer: Vec::with_capacity(DEFAULT_BUF_SIZE),
+            size: DEFAULT_BUF_SIZE,
+        },
+    )
 }
 
 /// Creates a pair of pipes for bidirectional communication, a bit like UNIX's `socketpair(2)`.
 #[cfg(feature = "bidirectional")]
 #[cfg_attr(feature = "unstable-doc-cfg", doc(cfg(feature = "bidirectional")))]
-pub fn bipipe() -> (readwrite::ReadWrite<PipeReader, PipeWriter>, readwrite::ReadWrite<PipeReader, PipeWriter>) {
-    let (r1,w1) = pipe();
-    let (r2,w2) = pipe();
-    ((r1,w2).into(), (r2,w1).into())
+pub fn bipipe() -> (
+    readwrite::ReadWrite<PipeReader, PipeWriter>,
+    readwrite::ReadWrite<PipeReader, PipeWriter>,
+) {
+    let (r1, w1) = pipe();
+    let (r2, w2) = pipe();
+    ((r1, w2).into(), (r2, w1).into())
 }
 
 /// Creates a pair of pipes for bidirectional communication using buffered writer, a bit like UNIX's `socketpair(2)`.
 #[cfg(feature = "bidirectional")]
 #[cfg_attr(feature = "unstable-doc-cfg", doc(cfg(feature = "bidirectional")))]
-pub fn bipipe_buffered() -> (readwrite::ReadWrite<PipeReader, PipeBufWriter>, readwrite::ReadWrite<PipeReader, PipeBufWriter>) {
-    let (r1,w1) = pipe_buffered();
-    let (r2,w2) = pipe_buffered();
-    ((r1,w2).into(), (r2,w1).into())
+pub fn bipipe_buffered() -> (
+    readwrite::ReadWrite<PipeReader, PipeBufWriter>,
+    readwrite::ReadWrite<PipeReader, PipeBufWriter>,
+) {
+    let (r1, w1) = pipe_buffered();
+    let (r2, w2) = pipe_buffered();
+    ((r1, w2).into(), (r2, w1).into())
 }
 
 fn epipe() -> io::Error {
@@ -107,7 +128,8 @@ impl PipeWriter {
 
     /// Write data to the associated `PipeReader`
     pub fn send<B: Into<Vec<u8>>>(&self, bytes: B) -> io::Result<()> {
-        self.sender.send(bytes.into())
+        self.sender
+            .send(bytes.into())
             .map_err(|_| epipe())
             .map(drop)
     }
@@ -231,8 +253,7 @@ impl Write for &'_ PipeWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let data = buf.to_vec();
 
-        self.send(data)
-            .map(|_| buf.len())
+        self.send(data).map(|_| buf.len())
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -273,13 +294,12 @@ impl Write for PipeBufWriter {
             // buffer still has space but try to send it in case the other side already awaits
             match self.sender().try_send(data) {
                 Ok(_) => self.buffer.reserve(self.size),
-                Err(TrySendError::Full(data)) =>
-                    self.buffer = data,
+                Err(TrySendError::Full(data)) => self.buffer = data,
                 Err(TrySendError::Disconnected(data)) => {
                     self.buffer = data;
                     self.buffer.truncate(buffer_len);
-                    return Err(epipe())
-                },
+                    return Err(epipe());
+                }
             }
         }
 
@@ -295,11 +315,11 @@ impl Write for PipeBufWriter {
                 Ok(_) => {
                     self.buffer.reserve(self.size);
                     Ok(())
-                },
+                }
                 Err(SendError(data)) => {
                     self.buffer = data;
                     Err(epipe())
-                },
+                }
             }
         }
     }
@@ -320,9 +340,9 @@ impl Drop for PipeBufWriter {
 
 #[cfg(test)]
 mod tests {
-    use std::thread::spawn;
-    use std::io::{Read, Write};
     use super::*;
+    use std::io::{Read, Write};
+    use std::thread::spawn;
 
     #[test]
     fn pipe_reader() {
