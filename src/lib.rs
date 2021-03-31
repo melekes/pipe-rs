@@ -71,6 +71,38 @@ pub fn pipe() -> (PipeReader, PipeWriter) {
 
 /// Creates a synchronous memory pipe with buffered writer
 pub fn pipe_buffered() -> (PipeReader, PipeBufWriter) {
+    let (tx, rx) = crossbeam_channel::bounded(0);
+
+    (
+        PipeReader {
+            receiver: rx,
+            buffer: Vec::new(),
+            position: 0,
+        },
+        PipeBufWriter {
+            sender: Some(tx),
+            buffer: Vec::with_capacity(DEFAULT_BUF_SIZE),
+            size: DEFAULT_BUF_SIZE,
+        },
+    )
+}
+
+/// Creates an asynchronous memory pipe
+pub fn async_pipe() -> (PipeReader, PipeWriter) {
+    let (sender, receiver) = crossbeam_channel::unbounded();
+
+    (
+        PipeReader {
+            receiver,
+            buffer: Vec::new(),
+            position: 0,
+        },
+        PipeWriter { sender },
+    )
+}
+
+/// Creates an asynchronous memory pipe with buffered writer
+pub fn async_pipe_buffered() -> (PipeReader, PipeBufWriter) {
     let (tx, rx) = crossbeam_channel::unbounded();
 
     (
